@@ -1,4 +1,4 @@
-package org.gradle.plugins.dependency.anaylze
+package org.gradle.plugins.dependency.analyze
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.TaskAction

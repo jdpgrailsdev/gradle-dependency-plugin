@@ -33,6 +33,7 @@ repositories {
 dependencies {
     compile gradleApi()
     compile localGroovy()
+    compile 'org.ow2.asm:asm:5.0.1'
 
     testCompile("org.spockframework:spock-core:$spockVersion") {
         exclude group: 'org.codehaus.groovy', module: 'groovy-all'
