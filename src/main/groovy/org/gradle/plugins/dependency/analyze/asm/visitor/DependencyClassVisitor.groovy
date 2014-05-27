@@ -1,29 +1,29 @@
 package org.gradle.plugins.dependency.analyze.asm.visitor
 
-import org.objectweb.asm.AnnotationVisitor
+import org.gradle.api.tasks.TaskExecutionException
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassVisitor
-import org.objectweb.asm.FieldVisitor
-import org.objectweb.asm.MethodVisitor
-import org.objectweb.asm.signature.SignatureVisitor
 
 class DependencyClassVisitor {
 
-	private ASMVisitorResult result = new ASMVisitorResult()
+    static final CLASS_READER_FLAGS = 0
 
-	void visitClass(String className, File classFile) {
-		try {
-			ClassReader classReader = new ClassReader(classFile.newInputStream());
+    private ASMVisitorResult result = new ASMVisitorResult()
 
-			AnnotationVisitor annotationVisitor = new ASMAnnotationVisitor(result);
-			SignatureVisitor signatureVisitor = new ASMSignatureVisitor(result);
-			FieldVisitor fieldVisitor = new ASMFieldVisitor(annotationVisitor, result)
-			MethodVisitor methodVisitor = new ASMMethodVisitor(annotationVisitor, signatureVisitor, result);
-			ClassVisitor classVisitor = new ASMClassVisitor(annotationVisitor, fieldVisitor, methodVisitor, signatureVisitor, result);
+    void visitClass(File classFile) {
+        try {
+            if(classFile && classFile.exists()) {
+                ClassReader classReader = new ClassReader(classFile.newInputStream())
+                classReader.accept(new ASMClassVisitor(result), CLASS_READER_FLAGS)
+            } else {
+                throw new IllegalArgumentException("Unable to inspect class file: ${classFile ? "class file '${classFile?.absolutePath}' does not exist." : "classFile cannot be null."}")
+            }
+        } catch (e) {
+            throw new IllegalArgumentException("Unable to inspect class file '${classFile?.absolutePath}'.", e)
+        }
+    }
 
-			classReader.accept(classVisitor, 0)
-		} catch (e) {
-			// TODO throw Gradle task exception
-		}
-	}
+    Set<String> getDependencyClasses() {
+        result.getDependencyClasses()
+    }
 }

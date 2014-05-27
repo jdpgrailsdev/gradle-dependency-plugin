@@ -1,7 +1,8 @@
 apply plugin: 'java'
 apply plugin: 'groovy'
-apply plugin: 'license'
+//apply plugin: 'license'
 apply plugin: 'cobertura'
+apply from: 'gradle/publish.gradle'
 
 group = 'org.gradle.plugins'
 version = '1.0.0-SNAPSHOT'
@@ -56,13 +57,13 @@ cobertura {
     coverageReportDir = new File("$buildDir/reports/cobertura")
 }
 
-license {
-    header rootProject.file('LICENSE_HEADER')
-    strictCheck true
-    mapping {
-        java='SLASHSTAR_STYLE'
-        groovy='SLASHSTAR_STYLE'
-    }
-}
+//license {
+//    header rootProject.file('LICENSE_HEADER')
+//    strictCheck true
+//    mapping {
+//        java='SLASHSTAR_STYLE'
+//        groovy='SLASHSTAR_STYLE'
+//    }
+//}
 
 test.finalizedBy(project.tasks.cobertura)

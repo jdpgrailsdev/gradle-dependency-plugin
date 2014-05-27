@@ -17,13 +17,13 @@ class ASMClassVisitor extends ClassVisitor {
 	private SignatureVisitor signatureVisitor
 	private ASMVisitorResult result
 
-	ASMClassVisitor(AnnotationVisitor annotationVisitor, FieldVisitor fieldVisitor, MethodVisitor methodVisitor, SignatureVisitor signatureVisitor, ASMVisitorResult result) {
+	ASMClassVisitor(ASMVisitorResult result) {
 		super(Opcodes.ASM5)
 		this.result = result ?: new ASMVisitorResult()
-		this.annotationVisitor = annotationVisitor ?: new ASMAnnotationVisitor(this.result)
-		this.fieldVisitor = fieldVisitor ?: new ASMFieldVisitor(this.annotationVisitor, this.result)
-		this.signatureVisitor = signatureVisitor ?: new ASMSignatureVisitor(this.result)
-		this.methodVisitor = methodVisitor ?: new ASMMethodVisitor(this.annotationVisitor, this.signatureVisitor, this.result)
+		this.annotationVisitor = new ASMAnnotationVisitor(this.result)
+		this.fieldVisitor = new ASMFieldVisitor(this.annotationVisitor, this.result)
+		this.signatureVisitor = new ASMSignatureVisitor(this.result)
+		this.methodVisitor = new ASMMethodVisitor(this.annotationVisitor, this.signatureVisitor, this.result)
 	}
 
 	@Override
@@ -61,7 +61,7 @@ class ASMClassVisitor extends ClassVisitor {
 	@Override
 	public MethodVisitor visitMethod(int access, String className, String descriptor, String signature, String[] exceptions) {
 		if(!signature) {
-			result.addMethodDescriptor(desc);
+			result.addMethodDescriptor(descriptor)
 		} else {
 			new SignatureReader(signature).accept(signatureVisitor)
 		}

@@ -3,7 +3,7 @@ package org.gradle.plugins.dependency
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.Task
-import org.gradle.plugins.dependency.anaylze.AnalyzeTask
+import org.gradle.plugins.dependency.analyze.AnalyzeTask
 import org.gradle.plugins.dependency.update.UpdateVersionsTask
 
 class DependencyPlugin implements Plugin<Project> {

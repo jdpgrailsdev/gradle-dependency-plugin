@@ -3,40 +3,114 @@ package org.gradle.plugins.dependency.analyze
 import groovy.io.FileType
 
 import org.gradle.api.Project
+import org.gradle.api.artifacts.ModuleVersionIdentifier
 import org.gradle.api.artifacts.ResolvedArtifact
 import org.gradle.api.artifacts.ResolvedConfiguration
-import org.gradle.plugins.dependency.anaylze.util.ClassExtractor
+import org.gradle.api.artifacts.ResolvedDependency
+import org.gradle.plugins.dependency.analyze.asm.visitor.DependencyClassVisitor
+import org.gradle.plugins.dependency.analyze.util.ClassExtractor
 
 /**
  * Adapted from org.apache.maven.shared.dependency.analyzer.ClassFileVisitorUtils
- * @author ddcjpearlin
  *
  */
 class ProjectDependencyAnalyzer {
 
 	private ClassExtractor classExtractor = new ClassExtractor()
 
-	def analyze(Project project) {
-		ResolvedConfiguration resolvedConfiguration = project.configurations.getByName('all').getResolvedConfiguration()
+	private DependencyClassVisitor dependencyClassVisitor = new DependencyClassVisitor()
 
-		Map<ResolvedArtifact, Set<String>> dependencyClassesMap = buildClassesMap(resolvedConfiguration.resolvedArtifacts)
+	DependencyAnalysisReport analyze(Project project) {
+		Set<ResolvedArtifact> resolvedArtifacts = getResolvedArtifacts(project)
 
-		Set<String> projectClasses = getProjectClasses(project)
+		Map<ResolvedArtifact, Set<String>> dependencyClassesMap = buildDependencyClassesMap(resolvedArtifacts)
 
-		Set<ResolvedArtifact> declaredDependencies = resolvedConfiguration.resolvedArtifacts ?: [] as Set
+		Set<String> dependencyClassesFromCompiledSource = findDependenciesFromCompiledSource(project.buildDir)
+
+		//TODO just get declared artifacts from build, not all resolved artifacts
+		Set<ResolvedDependency> declaredDependencies = getProjectDeclaredDependencies(project)
+
+		Set<ResolvedArtifact> usedArtifacts = findUsedArtifacts(dependencyClassesMap, dependencyClassesFromCompiledSource)
+
+		Set<ResolvedDependency> unusedDeclaredDependencies = declaredDependencies.findAll { declaredDependency -> !usedArtifacts.find { usedArtifact -> compareDependencyToArtifact(declaredDependency, usedArtifact) } } ?: Collections.emptySet()
+
+		Set<ResolvedArtifact> usedUndeclaredArtifacts = usedArtifacts.findAll { usedArtifact -> !declaredDependencies.find { declaredDependency -> compareDependencyToArtifact(declaredDependency, usedArtifact) } } ?: Collections.emptySet()
+
+		new DependencyAnalysisReport(usedUndeclaredArtifacts, unusedDeclaredDependencies)
 	}
 
-	private Map<ResolvedArtifact, Set<String>> buildClassesMap(Set<ResolvedArtifact> resolvedArtifacts) {
+	private Set<ResolvedArtifact> getResolvedArtifacts(Project project) {
+		Set<ResolvedArtifact> resolvedArtifacts = new HashSet<ResolvedArtifact>()
+
+		project.getConfigurations().getNames().each { configurationName ->
+			ResolvedConfiguration resolvedConfiguration = project.getConfigurations().getByName(configurationName).resolvedConfiguration
+			resolvedArtifacts.addAll(resolvedConfiguration.resolvedArtifacts)
+		}
+
+		resolvedArtifacts
+	}
+
+	private Set<ResolvedDependency> getProjectDeclaredDependencies(Project project) {
+		Set<ResolvedDependency> declaredDependencies = new HashSet<ResolvedDependency>()
+
+		project.getConfigurations().getNames().each { configurationName ->
+			ResolvedConfiguration resolvedConfiguration = project.getConfigurations().getByName(configurationName).resolvedConfiguration
+			declaredDependencies.addAll(resolvedConfiguration.firstLevelModuleDependencies)
+		}
+
+		declaredDependencies
+	}
+
+	/**
+	 * Creates a map of each dependency/artifact to the list of compiled class files contained in said dependency/artifact.
+	 * This map is then used to cross reference against the dependency classes referenced in the compiled source of
+	 * the project being analyzed for matches to determine required dependencies for the project.
+	 * @param resolvedArtifacts The set of resolved artifacts for the current project.
+	 * @return A map of resolved artifacts to the set of class names for each compiled class found in the
+	 * 	dependency/artifact or an empty map if there are no resolved artifacts to process.
+	 */
+	private Map<ResolvedArtifact, Set<String>> buildDependencyClassesMap(Set<ResolvedArtifact> resolvedArtifacts) {
 		resolvedArtifacts.collectEntries { ResolvedArtifact artifact ->
 			[artifact : classExtractor.extractClasses(artifact)]
-		}
+		} ?: Collections.emptyMap()
 	}
 
-	private Set<String> getProjectClasses(Project project) {
-		Set<String> projectClasses = [] as Set<String>
-		project.buildDir.eachFileMatch FileType.FILES, ~/.*\.class/, { File match ->
-			projectClasses << match.absolutePath
+	/**
+	 * Returns the set of class files referenced by source files found in this project.  This
+	 * set is then used to determine which declared dependencies are necessary and which ones
+	 * are not necessary for compilation, execution, test, etc of this project.
+	 * @param buildDirectory The build directory of the current project that may contain {@code .class} files.
+	 * @return The set of dependency classes extracted from the compiled source for the project or
+	 * 	an empty set if no dependency classes are found.
+	 */
+	private Set<String> findDependenciesFromCompiledSource(File buildDirectory) {
+		Set<String> projectClasses = new HashSet<String>()
+		buildDirectory.eachFileRecurse(FileType.FILES) { File file ->
+			if(file.absolutePath ==~ /.*\.class/ ) {
+				dependencyClassVisitor.visitClass(file)
+				projectClasses.addAll(dependencyClassVisitor.getDependencyClasses())
+			}
 		}
 		projectClasses
+	}
+
+	private Set<ResolvedArtifact> findUsedArtifacts(Map<ResolvedArtifact, Set<String>> dependencyClassesMap, Set<String> dependencyClassesFromCompiledSource) {
+		Set<ResolvedArtifact> usedArtifacts = new HashSet<ResolvedArtifact>()
+
+		dependencyClassesFromCompiledSource.each { className ->
+			ResolvedArtifact usedArtifact = dependencyClassesMap.find { key, value -> value.contains(className) }?.key
+			if(usedArtifact) {
+				usedArtifacts << usedArtifact
+			}
+		}
+
+		usedArtifacts
+	}
+
+	private boolean compareDependencyToArtifact(ResolvedDependency dependency, ResolvedArtifact artifact) {
+		ModuleVersionIdentifier dependencyId = dependency.getModuleVersion().getId()
+		ModuleVersionIdentifier artifactId = artifact.getModuleVersion().getId()
+
+		dependencyId.getGroup() == artifactId.getGroup() && dependencyId.getName() == artifactId.getName() && dependencyId.getVersion() == artifactId.getVersion()
 	}
 }

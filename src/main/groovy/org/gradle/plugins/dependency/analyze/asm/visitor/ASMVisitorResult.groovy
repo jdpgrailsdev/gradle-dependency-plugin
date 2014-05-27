@@ -6,7 +6,7 @@ import org.objectweb.asm.Type
 
 class ASMVisitorResult {
 
-	private Set<String> classes = [] as Set<String>
+	private Set<String> dependencyClasses = new HashSet<String>()
 
 	void addClassName(String className) {
 		if(className) {
@@ -14,7 +14,7 @@ class ASMVisitorResult {
 			if(matcher.matches()) {
 				className = matcher[0][1]
 			}
-			classes << className.replaceAll('/', '.')
+			dependencyClasses << className.replaceAll('/', '.')
 		}
 	}
 
@@ -45,5 +45,9 @@ class ASMVisitorResult {
 		Type.getArgumentTypes(methodDescriptor)?.each { Type type ->
 			addType(type)
 		}
+	}
+
+	Set<String> getDependencyClasses() {
+		dependencyClasses
 	}
 }
