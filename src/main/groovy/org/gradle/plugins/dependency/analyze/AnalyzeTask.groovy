@@ -7,17 +7,17 @@ import org.gradle.plugins.dependency.analyze.internal.AsciiDependencyAnalysisRep
 
 class AnalyzeTask extends AbstractReportTask {
 
-	AsciiDependencyAnalysisReportRenderer renderer = new AsciiDependencyAnalysisReportRenderer()
+    AsciiDependencyAnalysisReportRenderer renderer = new AsciiDependencyAnalysisReportRenderer()
 
-	ProjectDependencyAnalyzer analyzer = new ProjectDependencyAnalyzer()
+    ProjectDependencyAnalyzer analyzer = new ProjectDependencyAnalyzer()
 
-	@Override
-	protected void generate(Project project) throws IOException {
-		renderer.render(analyzer.analyze(project))
-	}
+    @Override
+    protected void generate(Project project) throws IOException {
+        renderer.render(analyzer.analyze(project))
+    }
 
-	@Override
-	protected ReportRenderer getRenderer() {
-		renderer
-	}
+    @Override
+    protected ReportRenderer getRenderer() {
+        renderer
+    }
 }
