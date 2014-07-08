@@ -28,34 +28,38 @@ class ProjectDependencyAnalyzer {
         Set<String> dependencyClassesFromCompiledSource = findDependenciesFromCompiledSource(project.buildDir)
 
         //TODO just get declared artifacts from build, not all resolved artifacts
-        Set<ResolvedDependency> declaredDependencies = getProjectDeclaredDependencies(project)
+        Set<ScopedResolvedDependency> declaredDependencies = getProjectDeclaredDependencies(project)
 
-        Set<ResolvedArtifact> usedArtifacts = findUsedArtifacts(dependencyClassesMap, dependencyClassesFromCompiledSource)
+        Set<ScopedResolvedArtifact> usedArtifacts = findUsedArtifacts(dependencyClassesMap, dependencyClassesFromCompiledSource)
 
-        Set<ResolvedDependency> unusedDeclaredDependencies = declaredDependencies.findAll { declaredDependency -> !usedArtifacts.find { usedArtifact -> compareDependencyToArtifact(declaredDependency, usedArtifact) } } ?: Collections.emptySet()
+        Set<ScopedResolvedDependency> unusedDeclaredDependencies = declaredDependencies.findAll { declaredDependency -> !usedArtifacts.find { usedArtifact -> compareDependencyToArtifact(declaredDependency, usedArtifact) } } ?: Collections.emptySet()
 
-        Set<ResolvedArtifact> usedUndeclaredArtifacts = usedArtifacts.findAll { usedArtifact -> !declaredDependencies.find { declaredDependency -> compareDependencyToArtifact(declaredDependency, usedArtifact) } } ?: Collections.emptySet()
+        Set<ScopedResolvedArtifact> usedUndeclaredArtifacts = usedArtifacts.findAll { usedArtifact -> !declaredDependencies.find { declaredDependency -> compareDependencyToArtifact(declaredDependency, usedArtifact) } } ?: Collections.emptySet()
 
         new DependencyAnalysisReport(usedUndeclaredArtifacts, unusedDeclaredDependencies)
     }
 
-    private Set<ResolvedArtifact> getResolvedArtifacts(Project project) {
-        Set<ResolvedArtifact> resolvedArtifacts = new HashSet<ResolvedArtifact>()
+    private Set<ScopedResolvedArtifact> getResolvedArtifacts(Project project) {
+        Set<ScopedResolvedArtifact> resolvedArtifacts = new HashSet<ResolvedArtifact>()
 
         project.getConfigurations().getNames().each { configurationName ->
             ResolvedConfiguration resolvedConfiguration = project.getConfigurations().getByName(configurationName).resolvedConfiguration
-            resolvedArtifacts.addAll(resolvedConfiguration.resolvedArtifacts)
+            resolvedConfiguration.resolvedArtifacts.collect(resolvedArtifacts) { ResolvedArtifact artifact ->
+                new ScopedResolvedArtifact(artifact, configurationName)
+            }
         }
 
         resolvedArtifacts
     }
 
-    private Set<ResolvedDependency> getProjectDeclaredDependencies(Project project) {
-        Set<ResolvedDependency> declaredDependencies = new HashSet<ResolvedDependency>()
+    private Set<ScopedResolvedDependency> getProjectDeclaredDependencies(Project project) {
+        Set<ScopedResolvedDependency> declaredDependencies = new HashSet<ScopedResolvedDependency>()
 
         project.getConfigurations().getNames().each { configurationName ->
             ResolvedConfiguration resolvedConfiguration = project.getConfigurations().getByName(configurationName).resolvedConfiguration
-            declaredDependencies.addAll(resolvedConfiguration.firstLevelModuleDependencies)
+            resolvedConfiguration.firstLevelModuleDependencies.collect(declaredDependencies) { ResolvedDependency dependency ->
+                new ScopedResolvedDependency(dependency, configurationName)
+            }
         }
 
         declaredDependencies
@@ -69,9 +73,9 @@ class ProjectDependencyAnalyzer {
      * @return A map of resolved artifacts to the set of class names for each compiled class found in the
      * 	dependency/artifact or an empty map if there are no resolved artifacts to process.
      */
-    private Map<ResolvedArtifact, Set<String>> buildDependencyClassesMap(Set<ResolvedArtifact> resolvedArtifacts) {
-        Map<ResolvedArtifact, Set<String>> dependencyClassMap = [:]
-        resolvedArtifacts.each { ResolvedArtifact artifact ->
+    private Map<ScopedResolvedArtifact, Set<String>> buildDependencyClassesMap(Set<ScopedResolvedArtifact> resolvedArtifacts) {
+        Map<ScopedResolvedArtifact, Set<String>> dependencyClassMap = [:]
+        resolvedArtifacts.each { ScopedResolvedArtifact artifact ->
             dependencyClassMap.put(artifact, classExtractor.extractClasses(artifact))
         }
         dependencyClassMap
@@ -96,8 +100,8 @@ class ProjectDependencyAnalyzer {
         projectClasses
     }
 
-    private Set<ResolvedArtifact> findUsedArtifacts(Map<ResolvedArtifact, Set<String>> dependencyClassesMap, Set<String> dependencyClassesFromCompiledSource) {
-        Set<ResolvedArtifact> usedArtifacts = new HashSet<ResolvedArtifact>()
+    private Set<ScopedResolvedArtifact> findUsedArtifacts(Map<ScopedResolvedArtifact, Set<String>> dependencyClassesMap, Set<String> dependencyClassesFromCompiledSource) {
+        Set<ScopedResolvedArtifact> usedArtifacts = new HashSet<ScopedResolvedArtifact>()
 
         dependencyClassesFromCompiledSource.each { className ->
             ResolvedArtifact usedArtifact = dependencyClassesMap.find { key, value -> value.contains(className) }?.key
@@ -109,7 +113,7 @@ class ProjectDependencyAnalyzer {
         usedArtifacts
     }
 
-    private boolean compareDependencyToArtifact(ResolvedDependency dependency, ResolvedArtifact artifact) {
+    private boolean compareDependencyToArtifact(ScopedResolvedDependency dependency, ScopedResolvedArtifact artifact) {
         ResolvedModuleVersion artifactModule = artifact.moduleVersion
         dependency.getModuleGroup() == artifactModule.getId().getGroup() && dependency.getModuleName() == artifactModule.getId().getName() && dependency.getModuleVersion() == artifactModule.getId().getVersion()
     }
