@@ -1,7 +1,6 @@
 package org.gradle.plugins.dependency.analyze
 
 import org.gradle.api.artifacts.ResolvedArtifact
-import org.gradle.api.artifacts.ResolvedDependency
 import org.gradle.api.artifacts.ResolvedModuleVersion
 
 class ScopedResolvedArtifact implements ResolvedArtifact {
@@ -38,11 +37,6 @@ class ScopedResolvedArtifact implements ResolvedArtifact {
     @Override
     public String getName() {
         delegate?.getName() ?: null
-    }
-
-    @Override
-    public ResolvedDependency getResolvedDependency() {
-        delegate?.getResolvedDependency() ?: null
     }
 
     public String getScope() {
