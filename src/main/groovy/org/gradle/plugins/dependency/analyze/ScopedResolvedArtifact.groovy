@@ -2,6 +2,7 @@ package org.gradle.plugins.dependency.analyze
 
 import org.gradle.api.artifacts.ResolvedArtifact
 import org.gradle.api.artifacts.ResolvedModuleVersion
+import org.gradle.api.artifacts.component.ComponentArtifactIdentifier
 
 class ScopedResolvedArtifact implements ResolvedArtifact {
 
@@ -46,5 +47,10 @@ class ScopedResolvedArtifact implements ResolvedArtifact {
     @Override
     public String getType() {
         delegate?.getType() ?: null
+    }
+
+    @Override
+    public ComponentArtifactIdentifier getId() {
+        delegate?.getId() ?: null
     }
 }
