@@ -1,30 +1,46 @@
-apply plugin: 'java'
+apply plugin: 'findbugs'
 apply plugin: 'groovy'
-//apply plugin: 'license'
-apply plugin: 'cobertura'
+apply plugin: 'jacoco'
+apply plugin: 'java'
 apply plugin: 'maven'
-//apply from: 'gradle/publish.gradle'
 
 group = 'org.gradle.plugins'
 version = '1.0.0-SNAPSHOT'
 
 description = "Provides utility tasks to work with dependencies like analyzing, resolving and updating."
 
-sourceCompatibility = '1.7'
+sourceCompatibility = '1.8'
 
 buildscript {
     repositories {
         mavenLocal()
         mavenCentral()
     }
-    dependencies {
-        classpath 'nl.javadude.gradle.plugins:license-gradle-plugin:0.7.0'
-        classpath 'net.saliman:gradle-cobertura-plugin:2.2.4'
+}
+
+// Disable strict doclint - http://blog.joda.org/2014/02/turning-off-doclint-in-jdk-8-javadoc.html
+if (JavaVersion.current().isJava8Compatible()) {
+    allprojects {
+        tasks.withType(Javadoc) {
+            options.addStringOption('Xdoclint:none', '-quiet')
+        }
     }
 }
 
 ext {
-    spockVersion = '0.7-groovy-1.8' // Gradle API currently uses 1.8.6 of Groovy and there is no way to exclude/replace it (currently).
+    jacocoVersion = '0.7.5.201505241946'
+}
+
+findbugs {
+    ignoreFailures = true
+    reportLevel = 'low'
+}
+
+findbugsMain {
+    reports {
+        xml.enabled = false
+        html.enabled = true
+    }
 }
 
 repositories {
@@ -35,13 +51,13 @@ repositories {
 dependencies {
     compile gradleApi()
     compile localGroovy()
-    compile 'org.ow2.asm:asm:5.0.1'
+    compile 'org.ow2.asm:asm:5.1'
 
-    testCompile("org.spockframework:spock-core:$spockVersion") {
+    testCompile('org.spockframework:spock-core:1.0-groovy-2.4') {
         exclude group: 'org.codehaus.groovy', module: 'groovy-all'
     }
-    testCompile 'cglib:cglib-nodep:2.2.2'
-    testCompile 'junit:junit-dep:4.11'
+    testCompile 'cglib:cglib-nodep:3.2.2'
+    testCompile 'junit:junit-dep:4.12'
     testCompile 'org.objenesis:objenesis:1.2'
 }
 
@@ -51,20 +67,13 @@ test {
     }
 }
 
-cobertura {
-    coverageFormats = ['html', 'xml']
-    coverageIgnoreTrivial = true
-    coverageIgnores = ['org.slf4j.Logger.*']
-    coverageReportDir = new File("$buildDir/reports/cobertura")
+jacoco {
+    toolVersion = jacocoVersion
 }
 
-//license {
-//    header rootProject.file('LICENSE_HEADER')
-//    strictCheck true
-//    mapping {
-//        java='SLASHSTAR_STYLE'
-//        groovy='SLASHSTAR_STYLE'
-//    }
-//}
-
-test.finalizedBy(project.tasks.cobertura)
+/*
+ * Set the Jacoco generate report task to not cache and set it to
+ * run automatically after the "test" task.
+ */
+project.tasks.jacocoTestReport.outputs.upToDateWhen { false }
+test.finalizedBy(project.tasks.jacocoTestReport)
