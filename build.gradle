@@ -4,13 +4,6 @@ apply plugin: 'jacoco'
 apply plugin: 'java'
 apply plugin: 'maven'
 
-group = 'org.gradle.plugins'
-version = '1.0.0-SNAPSHOT'
-
-description = "Provides utility tasks to work with dependencies like analyzing, resolving and updating."
-
-sourceCompatibility = '1.8'
-
 buildscript {
     repositories {
         mavenLocal()
@@ -43,6 +36,10 @@ findbugsMain {
     }
 }
 
+jacoco {
+    toolVersion = jacocoVersion
+}
+
 repositories {
     mavenLocal()
     mavenCentral()
@@ -50,26 +47,40 @@ repositories {
 
 dependencies {
     compile gradleApi()
-    compile localGroovy()
     compile 'org.ow2.asm:asm:5.1'
 
+    testCompile gradleTestKit()
     testCompile('org.spockframework:spock-core:1.0-groovy-2.4') {
         exclude group: 'org.codehaus.groovy', module: 'groovy-all'
     }
     testCompile 'cglib:cglib-nodep:3.2.2'
-    testCompile 'junit:junit-dep:4.12'
+    testCompile 'junit:junit:4.12'
     testCompile 'org.objenesis:objenesis:1.2'
 }
 
 test {
     filter {
-        includeTestsMatching "*Spec"
+        includeTestsMatching '*Spec'
     }
 }
 
-jacoco {
-    toolVersion = jacocoVersion
+task createPluginClasspath {
+    def outputDir = file("${buildDir}/resources/test")
+
+    inputs.files sourceSets.test.runtimeClasspath
+    outputs.dir outputDir
+
+    doLast {
+        outputDir.mkdirs()
+        file("${outputDir}/plugin-classpath.txt").text = sourceSets.test.runtimeClasspath.join('\n',)
+    }
 }
+
+// Always execute the tests -- needed for Jenkins to be happy
+test.outputs.upToDateWhen { false }
+
+// Build the plugin classpath for the Gradle Test Kit
+test.dependsOn(['createPluginClasspath'])
 
 /*
  * Set the Jacoco generate report task to not cache and set it to
