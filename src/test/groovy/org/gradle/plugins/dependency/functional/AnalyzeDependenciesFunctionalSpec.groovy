@@ -31,7 +31,7 @@ class AnalyzeDependenciesFunctionalSpec extends AbstractFunctionalSpec {
         when:
             GradleRunner runner = GradleRunner.create()
                 .withProjectDir(testProjectDir.getRoot())
-                .withArguments('analyzeDependencies', '--stacktrace', '--refresh-dependencies', '--debug')
+                .withArguments('analyzeDependencies', '--stacktrace', '--refresh-dependencies')
                 .withDebug(true)
                 .withGradleDistribution(new URI(getGradleDistribution()))
                 .withPluginClasspath(pluginClasspath)

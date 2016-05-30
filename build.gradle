@@ -48,6 +48,7 @@ repositories {
 dependencies {
     compile gradleApi()
     compile 'org.ow2.asm:asm:5.1'
+    compile 'org.ow2.asm:asm-commons:5.1'
 
     testCompile gradleTestKit()
     testCompile('org.spockframework:spock-core:1.0-groovy-2.4') {
