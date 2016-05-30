@@ -26,6 +26,7 @@ class ProjectDependencyAnalyzer {
         Map<ResolvedArtifact, Set<String>> dependencyClassesMap = buildDependencyClassesMap(resolvedArtifacts)
 
         Set<String> dependencyClassesFromCompiledSource = findDependenciesFromCompiledSource(project.buildDir)
+        project.getLogger().debug("Dependencies from compiled source: ${dependencyClassesFromCompiledSource}")
 
         //TODO just get declared artifacts from build, not all resolved artifacts
         Set<ScopedResolvedDependency> declaredDependencies = getProjectDeclaredDependencies(project)
@@ -49,6 +50,7 @@ class ProjectDependencyAnalyzer {
             }
         }
 
+        project.getLogger().debug("Resolved artifacts = ${resolvedArtifacts.collect { it.getId()?.getDisplayName() } }")
         resolvedArtifacts
     }
 
@@ -62,6 +64,7 @@ class ProjectDependencyAnalyzer {
             }
         }
 
+        project.getLogger().debug("Project declared dependencies = ${declaredDependencies.collect { "${it.getModuleGroup()}:${it.getModuleName()}:${it.getModuleVersion()}" } }")
         declaredDependencies
     }
 
