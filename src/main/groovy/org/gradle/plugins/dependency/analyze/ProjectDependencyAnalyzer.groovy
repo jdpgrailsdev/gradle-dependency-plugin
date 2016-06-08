@@ -3,6 +3,7 @@ package org.gradle.plugins.dependency.analyze
 import groovy.io.FileType
 
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ResolvedArtifact
 import org.gradle.api.artifacts.ResolvedConfiguration
 import org.gradle.api.artifacts.ResolvedDependency
@@ -20,16 +21,16 @@ class ProjectDependencyAnalyzer {
 
     private DependencyClassVisitor dependencyClassVisitor = new DependencyClassVisitor()
 
-    DependencyAnalysisReport analyze(Project project) {
-        Set<ResolvedArtifact> resolvedArtifacts = getResolvedArtifacts(project)
+    DependencyAnalysisReport analyze(Project project, Set<Configuration> configurations) {
+        Set<ResolvedArtifact> resolvedArtifacts = getResolvedArtifacts(project, configurations)
 
         Map<ResolvedArtifact, Set<String>> dependencyClassesMap = buildDependencyClassesMap(resolvedArtifacts)
 
         Set<String> dependencyClassesFromCompiledSource = findDependenciesFromCompiledSource(project.buildDir)
         project.getLogger().debug("Dependencies from compiled source: ${dependencyClassesFromCompiledSource}")
 
-        //TODO just get declared artifacts from build, not all resolved artifacts
-        Set<ScopedResolvedDependency> declaredDependencies = getProjectDeclaredDependencies(project)
+        Set<ScopedResolvedDependency> declaredDependencies = getProjectDeclaredDependencies(project, configurations)
+        project.getLogger().debug(declaredDependencies.collect { "${it.getModuleGroup()}:${it.getModuleName()}:${it.getModuleVersion()}"}.join('\n'))
 
         Set<ScopedResolvedArtifact> usedArtifacts = findUsedArtifacts(dependencyClassesMap, dependencyClassesFromCompiledSource)
 
@@ -40,10 +41,10 @@ class ProjectDependencyAnalyzer {
         new DependencyAnalysisReport(usedUndeclaredArtifacts, unusedDeclaredDependencies)
     }
 
-    private Set<ScopedResolvedArtifact> getResolvedArtifacts(Project project) {
+    private Set<ScopedResolvedArtifact> getResolvedArtifacts(Project project, Set<Configuration> configurations) {
         Set<ScopedResolvedArtifact> resolvedArtifacts = new HashSet<ResolvedArtifact>()
 
-        project.getConfigurations().getNames().each { configurationName ->
+        project.getConfigurations().getNames().findAll { configurations.collect { it.getName() }.contains(it) }.each { configurationName ->
             ResolvedConfiguration resolvedConfiguration = project.getConfigurations().getByName(configurationName).resolvedConfiguration
             resolvedConfiguration.resolvedArtifacts.collect(resolvedArtifacts) { ResolvedArtifact artifact ->
                 new ScopedResolvedArtifact(artifact, configurationName)
@@ -54,10 +55,10 @@ class ProjectDependencyAnalyzer {
         resolvedArtifacts
     }
 
-    private Set<ScopedResolvedDependency> getProjectDeclaredDependencies(Project project) {
+    private Set<ScopedResolvedDependency> getProjectDeclaredDependencies(Project project, Set<Configuration> configurations) {
         Set<ScopedResolvedDependency> declaredDependencies = new HashSet<ScopedResolvedDependency>()
 
-        project.getConfigurations().getNames().each { configurationName ->
+        project.getConfigurations().getNames().findAll { configurations.collect { it.getName() }.contains(it) }.each { configurationName ->
             ResolvedConfiguration resolvedConfiguration = project.getConfigurations().getByName(configurationName).resolvedConfiguration
             resolvedConfiguration.firstLevelModuleDependencies.collect(declaredDependencies) { ResolvedDependency dependency ->
                 new ScopedResolvedDependency(dependency, configurationName)
